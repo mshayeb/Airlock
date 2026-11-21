@@ -1,0 +1,72 @@
+# Airlock Phase 1 Portable Policy Manifest (spec.md §8.1)
+version = "1"
+
+[chamber]
+target = "local"                   # "local" | "remote"
+profile = "standard"               # "standard" (minimal) | "containers" (rootless podman)
+vcpus = 2
+memory_mib = 4096
+disk_upper_mib = 8192
+max_pids = 512
+ttl_seconds = 3600
+idle_ttl_seconds = 900
+
+[workspace]
+scrub_globs = [
+  ".env", ".env.*", "!.env.example", "!.env.template",
+  "*.pem", "*.key", "*.p12", ".npmrc", ".pypirc", ".netrc"
+]
+synthesize_env_from_example = true
+protected_paths = [
+  ".git/**", ".github/workflows/**", ".airlock/**",
+  "airlock.toml", "Dockerfile", "Makefile"
+]
+
+[[capabilities]]
+id = "github_agent_pr"
+type = "git_http"
+provider = "github_app"
+hosts = ["github.com", "api.github.com"]
+allow_methods = ["GET", "POST"]
+allow_paths = [
+  "/org/app.git/info/refs*",
+  "/org/app.git/git-upload-pack",
+  "/org/app.git/git-receive-pack",
+  "/repos/org/app/pulls*"
+]
+allowed_branches = ["refs/heads/agent/*"]
+allow_force_push = false
+env_var = "GITHUB_TOKEN"
+rate_limit_rpm = 60
+
+[[capabilities]]
+id = "llm_anthropic"
+type = "http"
+provider = "keychain:airlock/anthropic_api_key"
+hosts = ["api.anthropic.com"]
+allow_methods = ["POST"]
+allow_paths = ["/v1/messages"]
+inject_header = "x-api-key"
+env_var = "ANTHROPIC_API_KEY"
+max_budget_usd = 5.00
+rate_limit_rpm = 30
+
+[[capabilities]]
+id = "pkg_registries"
+type = "http"
+provider = "none"
+hosts = ["registry.npmjs.org", "pypi.org", "files.pythonhosted.org", "crates.io"]
+allow_methods = ["GET", "HEAD"]
+strip_query_params = true
+tls_mode = "terminate"
+
+[commit_gate]
+mode = "interactive"
+secret_scan = "block"
+max_diff_mib = 50
+
+[audit]
+log_dir = "~/.local/state/airlock/audit"
+hash_chain = true
+capture_http_bodies = false
+retention_days = 30

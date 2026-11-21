@@ -1,0 +1,17 @@
+[package]
+name = "airlock-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Airlock CLI (clig.dev + WCAG 2.2 AA compliant)"
+
+[[bin]]
+name = "airlock"
+path = "src/main.rs"
+
+[dependencies]
+airlock-broker = { path = "../airlock-broker" }
+airlock-policy = { path = "../airlock-policy" }
+airlock-proto = { path = "../airlock-proto" }
+airlock-vmm = { path = "../airlock-vmm" }
+airlockd = { path = "../airlockd" }

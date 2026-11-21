@@ -1,0 +1,8 @@
+[package]
+name = "airlock-policy"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Airlock policy manifest parser, secret-scrubbing rules, and HMAC phantom capability tokens"
+
+[dependencies]

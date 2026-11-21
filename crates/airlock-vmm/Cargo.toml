@@ -1,0 +1,8 @@
+[package]
+name = "airlock-vmm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Airlock hypervisor backend abstractions for Firecracker and Apple Virtualization.framework"
+
+[dependencies]

@@ -1,0 +1,10 @@
+[package]
+name = "airlock-broker"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Airlock host-side secretless capability broker, SSRF guard, and Git pkt-line inspector"
+
+[dependencies]
+airlock-policy = { path = "../airlock-policy" }
+airlock-proto = { path = "../airlock-proto" }

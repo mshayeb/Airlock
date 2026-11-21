@@ -1,0 +1,12 @@
+[package]
+name = "airlockd"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Airlock control daemon: CoW workspace scrubbing, atomic Commit Gate, and hash-chained audit trail"
+
+[dependencies]
+airlock-broker = { path = "../airlock-broker" }
+airlock-policy = { path = "../airlock-policy" }
+airlock-proto = { path = "../airlock-proto" }
+airlock-vmm = { path = "../airlock-vmm" }

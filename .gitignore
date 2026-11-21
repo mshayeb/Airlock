@@ -1,0 +1,28 @@
+# Rust build outputs
+/target/
+**/*.rs.bk
+
+# macOS Virtualization.framework helper builds
+/macos/airlock-vz-helper/bin/
+/macos/airlock-vz-helper/.build/
+
+# Python SDK
+/sdks/python/build/
+/sdks/python/*.egg-info/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+
+# TypeScript SDK
+/sdks/typescript/dist/
+/sdks/typescript/node_modules/
+
+# OS & editor artifacts
+.DS_Store
+
+# Never commit raw secrets; allow safe templates
+.env
+.env.*
+!.env.example
+!.env.template
+!airlock.toml.example

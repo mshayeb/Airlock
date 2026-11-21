@@ -1,0 +1,29 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/airlock-proto",
+  "crates/airlock-policy",
+  "crates/airlock-broker",
+  "crates/airlock-vmm",
+  "crates/airlockd",
+  "crates/airlock-guestd",
+  "crates/airlock-cli",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+
+# Phase 1 M0/Scaffold uses pure Rust `std` + workspace path dependencies so all
+# crates build and test cleanly in offline/read-only-HOME environments.
+# Planned M1/M2 async/TLS/CLI dependencies (cached in Cargo registry):
+# [workspace.dependencies]
+# tokio = { version = "1", features = ["full"] }
+# hyper = "1"
+# tokio-rustls = "0.26"
+# tokio-vsock = "0.7"
+# clap = { version = "4", features = ["derive"] }
+# serde = { version = "1", features = ["derive"] }
+# serde_json = "1"
+# toml = "0.9"

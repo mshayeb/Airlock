@@ -1,0 +1,9 @@
+[package]
+name = "airlock-guestd"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Airlock guest PID-1/init bootstrap planner: overlayfs, vsock proxy/tun0 env, and .gitconfig rewrites"
+
+[dependencies]
+airlock-proto = { path = "../airlock-proto" }
