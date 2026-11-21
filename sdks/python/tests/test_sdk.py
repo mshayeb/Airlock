@@ -1,6 +1,13 @@
 import base64
 import unittest
 
+try:
+    import pytest
+
+    pytestmark = pytest.mark.unit
+except ImportError:  # pragma: no cover - allow plain `python3 -m unittest`
+    pytest = None
+
 from airlock_sdk import (
     AirlockClient,
     ClaudeAgentSandbox,

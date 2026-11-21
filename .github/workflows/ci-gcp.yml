@@ -1,0 +1,137 @@
+name: Airlock CI (Pytest + Google Cloud)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Stage 1 — Fast Pytest Smoke Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Restore Cargo cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build airlock CLI binary
+        run: cargo build -p airlock-cli
+
+      - name: Set up Python & pytest
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - name: Install pytest
+        run: uv pip install --system "pytest>=8.0"
+
+      - name: Run Stage 1 pytest smoke suite
+        env:
+          JUNIT_DIR: reports
+        run: ./scripts/ci-pytest.sh --stage smoke
+
+      - name: Upload smoke JUnit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-smoke
+          path: reports/junit-smoke.xml
+
+  more-tests:
+    name: Stage 2 — Rust Workspace & Full Pytest Matrix (${{ matrix.os }})
+    needs: smoke
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-15]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Restore Cargo cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build & sign macOS Virtualization helper
+        if: runner.os == 'macOS'
+        run: sh "macos/airlock-vz-helper/build.sh"
+
+      - name: Run Rust workspace unit tests
+        run: cargo test --workspace
+
+      - name: Build airlock CLI binary
+        run: cargo build -p airlock-cli
+
+      - name: Set up Python & pytest
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - name: Install pytest
+        run: uv pip install --system "pytest>=8.0"
+
+      - name: Run Stage 2+ pytest suites (unit -> integration -> security)
+        env:
+          JUNIT_DIR: reports
+        run: ./scripts/ci-pytest.sh --stage more
+
+      - name: Upload matrix JUnit reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-more-${{ matrix.os }}
+          path: reports/junit-*.xml
+
+  gcp-cloud-build:
+    name: Stage 3 — Google Cloud Build & Nested-KVM Gate
+    needs: more-tests
+    if: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER != '' && vars.GCP_CI_SERVICE_ACCOUNT != '' && vars.GCP_PROJECT_ID != '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud via Workload Identity Federation
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Submit Airlock Cloud Build pipeline
+        env:
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          GCP_REGION: ${{ vars.GCP_REGION || 'us-central1' }}
+          GCP_KVM_WORKER_POOL: ${{ vars.GCP_KVM_WORKER_POOL }}
+          GIT_SHA: ${{ github.sha }}
+        run: |
+          if [ -n "$GCP_KVM_WORKER_POOL" ]; then
+            gcloud builds submit . \
+              --config=cloudbuild.yaml \
+              --project="$GCP_PROJECT_ID" \
+              --region="$GCP_REGION" \
+              --worker-pool="$GCP_KVM_WORKER_POOL" \
+              --substitutions="_GIT_SHA=$GIT_SHA"
+          else
+            gcloud builds submit . \
+              --config=cloudbuild.yaml \
+              --project="$GCP_PROJECT_ID" \
+              --region="$GCP_REGION" \
+              --substitutions="_GIT_SHA=$GIT_SHA"
+          fi

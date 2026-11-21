@@ -1,0 +1,65 @@
+# Google Cloud Build pipeline for Airlock Phase 1
+# Can be triggered directly via the Google Cloud Build GitHub App or submitted
+# from GitHub Actions via Workload Identity Federation (.github/workflows/ci-gcp.yml).
+
+substitutions:
+  _GIT_SHA: "manual"
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+steps:
+  - id: build-cli
+    name: rust:1.85-bookworm
+    entrypoint: sh
+    args:
+      - -ceu
+      - |
+        echo "Building Airlock workspace for commit ${_GIT_SHA}"
+        cargo build --workspace
+
+  - id: pytest-smoke
+    name: python:3.12-slim-bookworm
+    waitFor: ["build-cli"]
+    entrypoint: sh
+    args:
+      - -ceu
+      - |
+        python3 -m pip install --no-cache-dir "pytest>=8.0"
+        JUNIT_DIR=/workspace/reports ./scripts/ci-pytest.sh --stage smoke
+
+  - id: rust-unit-tests
+    name: rust:1.85-bookworm
+    waitFor: ["pytest-smoke"]
+    entrypoint: cargo
+    args: ["test", "--workspace"]
+
+  - id: pytest-more-tests
+    name: python:3.12-slim-bookworm
+    waitFor: ["pytest-smoke"]
+    entrypoint: sh
+    args:
+      - -ceu
+      - |
+        python3 -m pip install --no-cache-dir "pytest>=8.0"
+        JUNIT_DIR=/workspace/reports ./scripts/ci-pytest.sh --stage more
+
+  - id: linux-kvm-doctor
+    name: debian:bookworm-slim
+    waitFor: ["rust-unit-tests", "pytest-more-tests"]
+    entrypoint: sh
+    args:
+      - -ceu
+      - |
+        set +e
+        ./target/debug/airlock doctor --json
+        rc=$?
+        set -e
+        if [ "$rc" -eq 0 ]; then
+          echo "[SEALED] /dev/kvm present on Cloud Build worker."
+        elif [ "$rc" -eq 70 ]; then
+          echo "[REVIEW] /dev/kvm unavailable on standard container worker (rc=70); attach a nested-KVM GCE pool for Firecracker E2E."
+        else
+          echo "[BLOCKED] Unexpected airlock doctor exit code: $rc" >&2
+          exit "$rc"
+        fi

@@ -4,7 +4,9 @@ Ephemeral microVM **Chambers** with a host-side **Secretless Capability Broker**
 
 - **Intent:** [`intent.md`](intent.md)
 - **Requirements & Design Specification (v1.0, Signed Off):** [`spec.md`](spec.md)
+- **Cookbook (Getting Started & Recipes):** [`docs/cookbook.md`](docs/cookbook.md)
 - **Phase 0 (M0) Spike Report:** [`docs/m0-spike-report.md`](docs/m0-spike-report.md)
+- **Google Cloud ↔ GitHub CI:** [`.github/workflows/ci-gcp.yml`](.github/workflows/ci-gcp.yml), [`cloudbuild.yaml`](cloudbuild.yaml), [`infra/gcp/README.md`](infra/gcp/README.md)
 
 ---
 
@@ -22,6 +24,9 @@ Ephemeral microVM **Chambers** with a host-side **Secretless Capability Broker**
 | `macos/airlock-vz-helper` | Minimal signed Swift helper holding `com.apple.security.virtualization` |
 | `guest/image` | Hardened Linux 6.12 LTS guest kernel configuration (`CONFIG_VIRTIO_NET` unset) |
 | `sdks/python` & `sdks/typescript` | Thin zero-dependency client SDKs + `LangGraph`, `Claude Agent SDK`, `OpenAI Agents SDK`, and `OpenHands` adapters |
+| `tests/pytest` & `scripts/ci-pytest.sh` | Progressive `pytest` suite (`smoke` -> `unit` -> `integration` -> `security`) |
+| `.github/workflows/ci-gcp.yml` & `cloudbuild.yaml` | GitHub Actions + Google Cloud Build WIF CI pipeline (`infra/gcp/`) |
+| `docs/cookbook.md` | Practical recipes for getting started with Airlock |
 
 ---
 
@@ -41,7 +46,11 @@ cargo run --release -p airlockd --example m0_spike_bench
 # 4. Run CLI diagnostics (supports --json, --plain, NO_COLOR=1)
 cargo run -p airlock-cli -- doctor --plain
 
-# 5. Run Python SDK & harness adapter tests
+# 5. Run progressive pytest stages (smoke first, then unit/integration/security)
+sh "scripts/ci-pytest.sh" --stage smoke
+sh "scripts/ci-pytest.sh" --stage more
+
+# 6. Fallback unittest check for Python SDK
 python3 -m unittest discover -s "sdks/python/tests" -t "sdks/python" -v
 ```
 
