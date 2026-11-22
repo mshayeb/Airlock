@@ -277,18 +277,36 @@ fn cmd_doctor(ui: &UiStyle) -> u8 {
             }),
         }
     } else if cfg!(target_os = "linux") {
-        let kvm_ok = Path::new("/dev/kvm").exists();
+        let kvm_path = Path::new("/dev/kvm");
+        let (kvm_status, kvm_detail) = if !kvm_path.exists() {
+            infra_ok = false;
+            (
+                "BLOCKED",
+                "/dev/kvm missing; KVM required for Firecracker".to_owned(),
+            )
+        } else {
+            match fs::OpenOptions::new().read(true).write(true).open(kvm_path) {
+                Ok(_) => (
+                    "ALLOW",
+                    "/dev/kvm present and read/write accessible".to_owned(),
+                ),
+                Err(err) => {
+                    infra_ok = false;
+                    (
+                        "BLOCKED",
+                        format!(
+                            "/dev/kvm permission denied ({err}); grant runner user access to kvm group"
+                        ),
+                    )
+                }
+            }
+        };
         checks.push(DoctorCheck {
             name: "linux_kvm",
-            status: if kvm_ok { "ALLOW" } else { "BLOCKED" },
-            detail: if kvm_ok {
-                "/dev/kvm present".to_owned()
-            } else {
-                infra_ok = false;
-                "/dev/kvm missing; KVM required for Firecracker".to_owned()
-            },
+            status: kvm_status,
+            detail: kvm_detail,
         });
-        for bin in ["firecracker", "mkfs.erofs"] {
+        for bin in ["firecracker", "jailer", "mkfs.erofs"] {
             let found = Command::new("which").arg(bin).output().is_ok_and(|o| o.status.success());
             checks.push(DoctorCheck {
                 name: bin,

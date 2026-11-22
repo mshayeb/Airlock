@@ -25,8 +25,9 @@ steps:
     args:
       - -ceu
       - |
-        python3 -m pip install --no-cache-dir "pytest>=8.0"
-        JUNIT_DIR=/workspace/reports ./scripts/ci-pytest.sh --stage smoke
+        python3 -m venv /tmp/airlock-venv
+        /tmp/airlock-venv/bin/pip install --no-cache-dir "pytest>=8.0"
+        PYTHON_BIN=/tmp/airlock-venv/bin/python JUNIT_DIR=/workspace/reports ./scripts/ci-pytest.sh --stage smoke
 
   - id: rust-unit-tests
     name: rust:1.85-bookworm
@@ -41,8 +42,9 @@ steps:
     args:
       - -ceu
       - |
-        python3 -m pip install --no-cache-dir "pytest>=8.0"
-        JUNIT_DIR=/workspace/reports ./scripts/ci-pytest.sh --stage more
+        python3 -m venv /tmp/airlock-venv
+        /tmp/airlock-venv/bin/pip install --no-cache-dir "pytest>=8.0"
+        PYTHON_BIN=/tmp/airlock-venv/bin/python JUNIT_DIR=/workspace/reports ./scripts/ci-pytest.sh --stage more
 
   - id: linux-kvm-doctor
     name: debian:bookworm-slim

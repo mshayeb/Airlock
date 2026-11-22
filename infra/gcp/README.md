@@ -18,7 +18,7 @@ Run [`setup-github-gcp-ci.sh`](setup-github-gcp-ci.sh) with `gcloud` authenticat
 
 ```sh
 export GCP_PROJECT_ID="your-gcp-project-id"
-export GCP_REGION="us-central1"
+export GCP_REGION="us-west1"
 export GITHUB_ORG="your-github-org-or-user"
 export GITHUB_REPO="Airlock"
 
@@ -30,7 +30,7 @@ Then add the printed **Repository Variables** in GitHub (**Settings → Secrets 
 | Variable | Example Value | Required |
 |---|---|---|
 | `GCP_PROJECT_ID` | `your-gcp-project-id` | Yes (to enable Stage 3) |
-| `GCP_REGION` | `us-central1` | Optional (defaults to `us-central1`) |
+| `GCP_REGION` | `us-west1` | Optional (defaults to `us-west1`) |
 | `GCP_WORKLOAD_IDENTITY_PROVIDER` | `projects/123456789/locations/global/workloadIdentityPools/github-pool/providers/github-oidc` | Yes (to enable Stage 3) |
 | `GCP_CI_SERVICE_ACCOUNT` | `airlock-github-ci@your-gcp-project-id.iam.gserviceaccount.com` | Yes (to enable Stage 3) |
 | `GCP_KVM_WORKER_POOL` | `projects/your-gcp-project-id/locations/us-central1/workerPools/airlock-kvm` | Optional (for `/dev/kvm` Firecracker M1+ tests) |
@@ -54,5 +54,16 @@ Standard Cloud Build container workers do not expose `/dev/kvm` (`airlock doctor
      --enable-nested-virtualization \
      --boot-disk-size=100GB
    ```
-2. Install `erofs-utils` (`mkfs.erofs`), `firecracker`, and `jailer` on the VM and grant the runner user access to `/dev/kvm`.
-3. Register it as an ephemeral GitHub Actions self-hosted runner (or private Cloud Build worker pool) and re-run `airlock doctor --json` — `linux_kvm` transitions from `[BLOCKED]` to `[ALLOW]`.
+2. Provision `erofs-utils` (`mkfs.erofs`), `firecracker`, `jailer`, `/dev/kvm` permissions (`kvm` group + udev rule), and register an `--ephemeral` GitHub Actions self-hosted runner (`[self-hosted, linux, x64, airlock-kvm]`):
+   ```sh
+   export GCP_PROJECT_ID="airlock-515421"
+   export GCP_ZONE="us-west1-a"
+   export VM_NAME="airlock-kvm-runner"
+   export GITHUB_REPO_FULL="mshayeb/Airlock"
+
+   sh infra/gcp/provision-kvm-runner.sh
+   ```
+3. The provisioning script verifies the transition directly on `airlock-kvm-runner`:
+   - Before adding `ghrunner` to the `kvm` group: `airlock doctor --json` outputs `"check":"linux_kvm","status":"BLOCKED"` (exit `70`).
+   - After granting `/dev/kvm` access (`usermod -aG kvm ghrunner`): `airlock doctor --json` outputs `"check":"linux_kvm","status":"ALLOW"`, `"firecracker":"ALLOW"`, `"jailer":"ALLOW"`, and `"mkfs.erofs":"ALLOW"` (exit `0`).
+4. Trigger the `kvm-self-hosted` job in [`.github/workflows/ci-gcp.yml`](../../.github/workflows/ci-gcp.yml) via `workflow_dispatch` (`run_kvm_runner=true`) or by setting repository variable `ENABLE_KVM_RUNNER=true`.

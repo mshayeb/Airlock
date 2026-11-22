@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      run_kvm_runner:
+        description: "Run ephemeral nested-KVM self-hosted verification job"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -27,15 +33,19 @@ jobs:
       - name: Build airlock CLI binary
         run: cargo build -p airlock-cli
 
-      - name: Set up Python & pytest
+      - name: Set up Python & uv
         uses: astral-sh/setup-uv@v5
         with:
           python-version: "3.12"
-      - name: Install pytest
-        run: uv pip install --system "pytest>=8.0"
+
+      - name: Install pytest in uv virtualenv
+        run: |
+          uv venv --allow-existing .venv
+          uv pip install --python .venv/bin/python "pytest>=8.0"
 
       - name: Run Stage 1 pytest smoke suite
         env:
+          PYTHON_BIN: .venv/bin/python
           JUNIT_DIR: reports
         run: ./scripts/ci-pytest.sh --stage smoke
 
@@ -74,15 +84,19 @@ jobs:
       - name: Build airlock CLI binary
         run: cargo build -p airlock-cli
 
-      - name: Set up Python & pytest
+      - name: Set up Python & uv
         uses: astral-sh/setup-uv@v5
         with:
           python-version: "3.12"
-      - name: Install pytest
-        run: uv pip install --system "pytest>=8.0"
+
+      - name: Install pytest in uv virtualenv
+        run: |
+          uv venv --allow-existing .venv
+          uv pip install --python .venv/bin/python "pytest>=8.0"
 
       - name: Run Stage 2+ pytest suites (unit -> integration -> security)
         env:
+          PYTHON_BIN: .venv/bin/python
           JUNIT_DIR: reports
         run: ./scripts/ci-pytest.sh --stage more
 
@@ -92,6 +106,32 @@ jobs:
         with:
           name: junit-more-${{ matrix.os }}
           path: reports/junit-*.xml
+
+  kvm-self-hosted:
+    name: Stage 2B — Ephemeral GCE Nested-KVM Runner Verification
+    needs: smoke
+    if: ${{ inputs.run_kvm_runner == true || vars.ENABLE_KVM_RUNNER == 'true' }}
+    runs-on: [self-hosted, linux, x64, airlock-kvm]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build airlock CLI & run workspace unit tests
+        run: |
+          cargo build -p airlock-cli
+          cargo test --workspace
+
+      - name: Verify /dev/kvm, firecracker, jailer, and mkfs.erofs via airlock doctor
+        run: |
+          out="$(./target/debug/airlock doctor --json)"
+          echo "$out"
+          python3 -c '
+          import json, sys
+          data = json.loads(sys.argv[1])
+          statuses = {c["check"]: c["status"] for c in data["checks"]}
+          for req in ("linux_kvm", "firecracker", "jailer", "mkfs.erofs"):
+              assert statuses.get(req) == "ALLOW", f"{req} expected ALLOW, got {statuses.get(req)}"
+          ' "$out"
 
   gcp-cloud-build:
     name: Stage 3 — Google Cloud Build & Nested-KVM Gate
@@ -117,7 +157,7 @@ jobs:
       - name: Submit Airlock Cloud Build pipeline
         env:
           GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
-          GCP_REGION: ${{ vars.GCP_REGION || 'us-central1' }}
+          GCP_REGION: ${{ vars.GCP_REGION || 'us-west1' }}
           GCP_KVM_WORKER_POOL: ${{ vars.GCP_KVM_WORKER_POOL }}
           GIT_SHA: ${{ github.sha }}
         run: |

@@ -7,7 +7,7 @@ set -euo pipefail
 : "${GCP_PROJECT_ID:?Set GCP_PROJECT_ID (e.g., export GCP_PROJECT_ID=my-airlock-ci)}"
 : "${GITHUB_ORG:?Set GITHUB_ORG (e.g., export GITHUB_ORG=my-org)}"
 : "${GITHUB_REPO:?Set GITHUB_REPO (e.g., export GITHUB_REPO=Airlock)}"
-GCP_REGION="${GCP_REGION:-us-central1}"
+GCP_REGION="${GCP_REGION:-us-west1}"
 POOL_ID="${POOL_ID:-github-pool}"
 PROVIDER_ID="${PROVIDER_ID:-github-oidc}"
 SA_NAME="${SA_NAME:-airlock-github-ci}"
