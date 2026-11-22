@@ -74,7 +74,7 @@ if [ ! -x /opt/rust/bin/cargo ]; then
     'curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable --no-modify-path'
   sudo chmod -R a+rX /opt/rust
 fi
-for bin in cargo rustc rustup; do
+for bin in cargo rustc rustdoc rustup; do
   cat <<WRAP | sudo tee "/usr/local/bin/${bin}" >/dev/null
 #!/bin/sh
 export RUSTUP_HOME=/opt/rust
@@ -84,6 +84,7 @@ WRAP
 done
 cargo --version
 rustc --version
+rustdoc --version
 
 echo "--- Configuring ghrunner user and /dev/kvm udev rules ---"
 if ! id -u ghrunner >/dev/null 2>&1; then
@@ -113,7 +114,7 @@ sudo tar -xzf /tmp/airlock-src.tgz -C /home/ghrunner/airlock-src
 sudo chown -R ghrunner:ghrunner /home/ghrunner/airlock-src
 rm -f /tmp/airlock-src.tgz
 
-sudo -u ghrunner -H bash -lc 'cd /home/ghrunner/airlock-src && cargo build -p airlock-cli'
+sudo -u ghrunner -H bash -lc 'cd /home/ghrunner/airlock-src && cargo build -p airlock-cli && cargo test --workspace'
 
 echo "--- BEFORE granting kvm group: airlock doctor --json ---"
 sudo -u ghrunner -H id

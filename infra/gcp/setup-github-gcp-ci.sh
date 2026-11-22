@@ -36,9 +36,24 @@ for role in \
   roles/cloudbuild.builds.editor \
   roles/logging.logWriter \
   roles/serviceusage.serviceUsageConsumer \
-  roles/storage.objectAdmin; do
+  roles/storage.admin; do
   gcloud projects add-iam-policy-binding "${GCP_PROJECT_ID}" \
     --member="serviceAccount:${SA_EMAIL}" \
+    --role="${role}" \
+    --condition=None >/dev/null
+done
+
+COMPUTE_SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
+gcloud iam service-accounts add-iam-policy-binding "${COMPUTE_SA}" \
+  --project="${GCP_PROJECT_ID}" \
+  --member="serviceAccount:${SA_EMAIL}" \
+  --role="roles/iam.serviceAccountUser" >/dev/null
+
+for role in \
+  roles/logging.logWriter \
+  roles/storage.objectViewer; do
+  gcloud projects add-iam-policy-binding "${GCP_PROJECT_ID}" \
+    --member="serviceAccount:${COMPUTE_SA}" \
     --role="${role}" \
     --condition=None >/dev/null
 done
