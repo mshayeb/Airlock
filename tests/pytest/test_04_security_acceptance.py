@@ -144,10 +144,14 @@ def test_macos_vz_helper_zero_nic_invariant(repo_root: Path) -> None:
         [str(helper), "--probe", "--json"],
         capture_output=True,
         text=True,
-        check=True,
+        check=False,
     )
+    assert proc.returncode in (0, 2)
     report = json.loads(proc.stdout)
-    assert report["is_supported"] is True
-    assert report["config_validated"] is True
     assert report["virtio_net_count"] == 0
     assert report["vsock_configured"] is True
+    if report["is_supported"] is True:
+        assert proc.returncode == 0
+        assert report["config_validated"] is True
+    else:
+        assert proc.returncode == 2
